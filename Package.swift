@@ -9,12 +9,18 @@ let package = Package(
     dependencies: [
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
+        .package(url: "https://github.com/pvieito/PythonKit.git", .branch("master")),
+        .package(url: "https://github.com/pumperknickle/RQTFoundation.git", from: "0.0.8"),
+        .package(url: "https://github.com/vapor/queues-redis-driver.git", from: "1.0.0"),
     ],
     targets: [
         .target(
             name: "App",
             dependencies: [
-                .product(name: "Vapor", package: "vapor")
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "PythonKit", package: "PythonKit"),
+                .product(name: "RQTFoundation", package: "RQTFoundation"),
+                .product(name: "QueuesRedisDriver", package: "queues-redis-driver"),
             ],
             swiftSettings: [
                 // Enable better optimizations when building in Release configuration. Despite the use of

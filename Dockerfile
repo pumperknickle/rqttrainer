@@ -51,6 +51,15 @@ RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app
 # Switch to the new home directory
 WORKDIR /app
 
+RUN apt-get update
+RUN apt-get -y install python3-pip
+RUN apt-get update && apt-get install -y unixodbc-dev gcc g++
+RUN pip3 install torch
+RUN pip3 install flair
+RUN pip3 install -U pip setuptools wheel
+RUN pip3 install -U spacy
+RUN python3 -m spacy download en_core_web_sm
+
 # Copy built executable and any staged resources from builder
 COPY --from=build --chown=vapor:vapor /staging /app
 
