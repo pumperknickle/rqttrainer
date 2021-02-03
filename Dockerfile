@@ -51,7 +51,18 @@ RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app
 # Switch to the new home directory
 WORKDIR /app
 
-RUN apt-get update
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-libraries-11-2=11.2.0-1 \
+    libnpp-11-2=11.2.1.68-1 \
+    cuda-nvtx-11-2=11.2.67-1 \
+    libcublas-11-2=11.3.1.68-1 \
+    libnccl2=$NCCL_VERSION-1+cuda11.2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# apt from auto upgrading the cublas package. See https://gitlab.com/nvidia/container-images/cuda/-/issues/88
+RUN apt-mark hold libcublas-11-2 libnccl2
+
+
 RUN apt-get -y install python3-pip
 RUN apt-get update && apt-get install -y unixodbc-dev gcc g++
 RUN pip3 install torch
