@@ -74,13 +74,14 @@ public struct Trainer {
     static func computeEmbedding(pathToExistingLM: String?, pathToCorpus: String, pathToTrainedLM: String) throws {
         print(Python.version)
         let flair = Python.import("flair")
+        let lang_trainer = Python.import("flair.trainers.language_model_trainer")
         let existingPath: PythonObject = pathToExistingLM == nil ? Python.None : PythonObject(pathToExistingLM!)
         let corpusPath: PythonObject = PythonObject(pathToCorpus)
         let trainPath: PythonObject = PythonObject(pathToTrainedLM)
         let dictionary = flair.data.Dictionary.load("chars")
         let language_model = pathToExistingLM == nil ? flair.models.LanguageModel(dictionary, Python.True, PythonObject(128), PythonObject(1)): flair.embeddings.FlairEmbeddings(existingPath).lm
-        let corpus = flair.trainers.language_model_trainer.TextCorpus(corpusPath, dictionary, language_model.is_forward_lm, Python.True)
-        let trainer = flair.trainers.language_model_trainer.LanguageModelTrainer(language_model, corpus)
+        let corpus = lang_trainer.TextCorpus(corpusPath, dictionary, language_model.is_forward_lm, Python.True)
+        let trainer = lang_trainer.LanguageModelTrainer(language_model, corpus)
         trainer.train(trainPath, PythonObject(10), PythonObject(10), PythonObject(10))
     }
 }
