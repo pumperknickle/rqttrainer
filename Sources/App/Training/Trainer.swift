@@ -4,7 +4,7 @@ import Foundation
 import Vapor
 
 let sentenceEndMarks = Set<Character>([".", "!", "?"])
-let embeddingCorpusPath = "resources/corpi/"
+let embeddingCorpusPath = "embeddingcorpi/"
 
 public extension String {
     func addSlash() -> String {
@@ -147,6 +147,7 @@ public extension Sequence where Element: RequirementVersion {
         let finalSubPath = lastCharInPath == "/" ? pathToCorpus : pathToCorpus + "/"
         if !Bool(os.path.exists(finalSubPath))! { os.mkdir(finalSubPath) }
         if !Bool(os.path.exists(finalSubPath + "train"))! { os.mkdir(finalSubPath + "train") }
+        print(finalSubPath)
         return req.fileio.writeFile(ByteBuffer(string: first), at: finalSubPath + "test.txt").flatMap { (_) -> EventLoopFuture<Void> in
             req.fileio.writeFile(ByteBuffer(string: second), at: finalSubPath + "valid.txt").flatMap { (_) -> EventLoopFuture<Void> in
                 return zip(Array(0..<rest.count), rest).compactMap { (element) -> EventLoopFuture<Void> in
