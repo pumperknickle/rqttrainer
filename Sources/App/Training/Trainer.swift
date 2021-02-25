@@ -5,6 +5,7 @@ import Vapor
 
 let sentenceEndMarks = Set<Character>([".", "!", "?"])
 let embeddingCorpusPath = "embeddingcorpi/"
+var defaultDetectionAttributes = ["adverb"]
 
 public extension String {
     func addSlashIfNeeded() -> String {
@@ -111,7 +112,7 @@ public extension Sequence where Element: RequirementVersion {
         }
     }
     
-    func computeAllModels<T: Tag>(req: Request, tags: [T], pathsToModels: String, pathsToLMs: [String], testSplit: Double = 0.1, devSplit: Double = 0.1) throws -> EventLoopFuture<Void> {
+    func computeAllModels<T: Tag>(req: Request, tags: [T], pathsToModels: String, pathsToLMs: [String], testSplit: Double = 0.1, devSplit: Double = 0.1, epochs: Int = 150) throws -> EventLoopFuture<Void> {
         let allAttributes = Array(Set(tags.map { $0.attribute }))
         let datasets = Python.import("flair.datasets")
         let pathToCorpus = "corpi/"
@@ -121,7 +122,7 @@ public extension Sequence where Element: RequirementVersion {
         return saveTaggingCorpus(req: req, tags: tags, allAttributes: allAttributes, pathToCorpus: pathToCorpus, testSplit: testSplit, devSplit: devSplit).flatMap { (_) -> EventLoopFuture<Void> in
             let corpus = datasets.ColumnCorpus(PythonObject(finalSubPath), PythonObject(columns), PythonObject("train.txt"), PythonObject("test.txt"), PythonObject("dev.txt"))
             return allAttributes.compactMap { (element) -> EventLoopFuture<Void> in
-                Trainer.computeLabellingModel(for: element, corpus: corpus, pathToTrainedModel: "resources/taggers/" + element + "/", pathsToLMs: finalPaths)
+                Trainer.computeLabellingModel(for: element, corpus: corpus, pathToTrainedModel: "resources/taggers/" + element + "/", pathsToLMs: finalPaths, epochs: epochs)
                 return req.eventLoop.future()
             }.flatten(on: req.eventLoop)
         }
@@ -167,7 +168,6 @@ public extension Sequence where Element: RequirementVersion {
         let finalSubPath = lastCharInPath == "/" ? pathToCorpus : pathToCorpus + "/"
         if !Bool(os.path.exists(finalSubPath))! { os.mkdir(finalSubPath) }
         if !Bool(os.path.exists(finalSubPath + "train"))! { os.mkdir(finalSubPath + "train") }
-        print(finalSubPath)
         return req.fileio.writeFile(ByteBuffer(string: first), at: finalSubPath + "test.txt").flatMap { (_) -> EventLoopFuture<Void> in
             req.fileio.writeFile(ByteBuffer(string: second), at: finalSubPath + "valid.txt").flatMap { (_) -> EventLoopFuture<Void> in
                 return zip(Array(0..<rest.count), rest).compactMap { (element) -> EventLoopFuture<Void> in
@@ -214,11 +214,11 @@ public extension String {
 }
 
 public struct Trainer {
-    static func infer(for requirements: [RequirementVersionImpl], for types: [String], pathToTrainedModel: String = "models/") -> [PredictedTagImpl] {
+    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String], pathToTrainedModel: String = "models/") -> [PredictedTagImpl] {
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
-        return types.map { (tagType) -> [PredictedTagImpl] in
-            let fullPath = pathToTrainedModel.addSlashIfNeeded() + tagType.addSlashIfNeeded()
+        return attributes.map { (attributeType) -> [PredictedTagImpl] in
+            let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded()
             let sequenceTagger = modelsModule.SequenceTagger.load(fullPath)
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
@@ -229,12 +229,12 @@ public struct Trainer {
                 let spans = sentence.get_spans()
                 return spans.map { (span) -> [(Int, Int, String, Float)] in
                     return span.labels.map { (Int(span.start_pos)!, Int(span.end_pos)!, String($0.value)!, Float($0.score)!) }
-                }.reduce([], +).map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: tagType, value: $0.2, createdAt: Date(), confidence: $0.3) }
+                }.reduce([], +).map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: attributeType, value: $0.2, createdAt: Date(), confidence: $0.3) }
             }.reduce([], +)
         }.reduce([], +)
     }
     
-    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "models/", pathsToLMs: [String]) {
+    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "models/", pathsToLMs: [String], epochs: Int = 150) {
         let embeddingsModule = Python.import("flair.embeddings")
         let modelsModule = Python.import("flair.models")
         let trainerModule = Python.import("flair.trainers")
@@ -246,11 +246,11 @@ public struct Trainer {
         let sequenceTagger = modelsModule.SequenceTagger(PythonObject(256), embeddings, tag_dictionary, tag_type, Python.True)
         let trainer = trainerModule.ModelTrainer(sequenceTagger, corpus)
         let fullPath = pathToTrainedModel.addSlashIfNeeded() + type.addSlashIfNeeded()
-        trainer.train(PythonObject(fullPath), PythonObject(0.1), PythonObject(32), PythonObject(150))
+        trainer.train(PythonObject(fullPath), PythonObject(0.1), PythonObject(32), PythonObject(epochs))
     }
     
     // Fine tune embedding at pathToExistingLM or create new Embedding if pathToExistingLM is nil, using pathToCorpus for training data, and storing the resulting embedding at pathToTrainedLM
-    static func computeEmbedding(pathToExistingLM: String?, pathToCorpus: String, pathToTrainedLM: String, is_forward: Bool = true) throws {
+    static func computeEmbedding(pathToExistingLM: String?, pathToCorpus: String, pathToTrainedLM: String, is_forward: Bool = true, max_epochs: Int = 10) throws {
         print(Python.version)
         let flair = Python.import("flair")
         let lang_trainer = Python.import("flair.trainers.language_model_trainer")
@@ -260,6 +260,6 @@ public struct Trainer {
         let language_model = pathToExistingLM == nil ? flair.models.LanguageModel(flair.data.Dictionary.load("chars"), PythonObject(is_forward), PythonObject(128), PythonObject(1)): flair.embeddings.FlairEmbeddings(existingPath).lm
         let corpus = lang_trainer.TextCorpus(corpusPath, language_model.dictionary, language_model.is_forward_lm, Python.True)
         let trainer = lang_trainer.LanguageModelTrainer(language_model, corpus)
-        trainer.train(trainPath, PythonObject(10), PythonObject(10), PythonObject(10))
+        trainer.train(trainPath, PythonObject(10), PythonObject(10), PythonObject(max_epochs))
     }
 }
