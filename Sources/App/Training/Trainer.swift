@@ -7,8 +7,12 @@ let sentenceEndMarks = Set<Character>([".", "!", "?"])
 let embeddingCorpusPath = "embeddingcorpi/"
 
 public extension String {
-    func addSlash() -> String {
+    func addSlashIfNeeded() -> String {
         return (last == "/" ? self : self + "/")
+    }
+    
+    func segTokTokenize() -> [String] {
+        return Python.import("flair.data").Sentence(self).map { String($0.text)! }
     }
 }
 
@@ -60,6 +64,22 @@ public extension Array where Element: Tag {
 
 
 public extension Array where Element == (Int, String.Element) {
+    func processTokens(tokens: [String]) -> [[(Int, String.Element)]] {
+        guard let firstToken = tokens.first else { return [] }
+        if matchesFront(token: firstToken) {
+            return [Array(prefix(firstToken.count))] + Array(dropFirst(firstToken.count)).processTokens(tokens: Array<String>(tokens.dropFirst()))
+        }
+        else { return Array(dropFirst()).processTokens(tokens: tokens) }
+    }
+    
+    func matchesFront(token: String) -> Bool {
+        if token.isEmpty { return true }
+        guard let tokenFirst = token.first else { return false }
+        guard let arrayFirst = first else { return false }
+        if tokenFirst == arrayFirst.1 { return Array(dropFirst()).matchesFront(token: String(token.dropFirst())) }
+        else { return false }
+    }
+    
     func tokenize() -> [[(Int, String.Element)]] {
         return tokenize(words: [], currentWord: [])
     }
@@ -79,7 +99,7 @@ public extension Array where Element == (Int, String.Element) {
 
 public extension RequirementVersion {
     func createCorpus<T: Tag>(tags: [T], allAttributes: [String]) -> String {
-        let words = text.enumerated().map { ($0.offset, $0.element) }.tokenize()
+        let words = text.enumerated().map { ($0.offset, $0.element) }.processTokens(tokens: text.segTokTokenize())
         return tags.attachAllTagsToWords(words: words).map { $0.1.transformToBio(wordTokens: $0.0, allAttributes: allAttributes) }.joined(separator: "\n")
     }
 }
@@ -95,8 +115,8 @@ public extension Sequence where Element: RequirementVersion {
         let allAttributes = Array(Set(tags.map { $0.attribute }))
         let datasets = Python.import("flair.datasets")
         let pathToCorpus = "corpi/"
-        let finalSubPath = pathToCorpus.addSlash()
-        let finalPaths = pathsToLMs.map { $0.addSlash() }
+        let finalSubPath = pathToCorpus.addSlashIfNeeded()
+        let finalPaths = pathsToLMs.map { $0.addSlashIfNeeded() }
         let columns = Dictionary<Int, String>(uniqueKeysWithValues: Array((["text"] + allAttributes).enumerated()))
         return saveTaggingCorpus(req: req, tags: tags, allAttributes: allAttributes, pathToCorpus: pathToCorpus, testSplit: testSplit, devSplit: devSplit).flatMap { (_) -> EventLoopFuture<Void> in
             let corpus = datasets.ColumnCorpus(PythonObject(finalSubPath), PythonObject(columns), PythonObject("train.txt"), PythonObject("test.txt"), PythonObject("dev.txt"))
@@ -125,7 +145,7 @@ public extension Sequence where Element: RequirementVersion {
     func saveTaggingCorpus<T: Tag>(req: Request, tags: [T], allAttributes: [String], pathToCorpus: String, testSplit: Double = 0.1, devSplit: Double = 0.1) -> EventLoopFuture<Void> {
         let corpi = createCorpusSplit(tags: tags, allAttributes: allAttributes, testSplit: testSplit, devSplit: devSplit)
         let os = Python.import("os")
-        let finalSubPath = pathToCorpus.addSlash()
+        let finalSubPath = pathToCorpus.addSlashIfNeeded()
         if !Bool(os.path.exists(finalSubPath))! { os.mkdir(finalSubPath) }
         return req.fileio.writeFile(ByteBuffer(string: corpi.0), at: finalSubPath + "train.txt").flatMap { (_) -> EventLoopFuture<Void> in
             req.fileio.writeFile(ByteBuffer(string: corpi.1), at: finalSubPath + "test.txt").flatMap { (_) -> EventLoopFuture<Void> in
@@ -194,7 +214,27 @@ public extension String {
 }
 
 public struct Trainer {
-    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String, pathsToLMs: [String]) {
+    static func infer(for requirements: [RequirementVersionImpl], for types: [String], pathToTrainedModel: String = "models/") -> [PredictedTagImpl] {
+        let dataModule = Python.import("flair.data")
+        let modelsModule = Python.import("flair.models")
+        return types.map { (tagType) -> [PredictedTagImpl] in
+            let fullPath = pathToTrainedModel.addSlashIfNeeded() + tagType.addSlashIfNeeded()
+            let sequenceTagger = modelsModule.SequenceTagger.load(fullPath)
+            return requirements.map { (requirement) -> [PredictedTagImpl] in
+                guard let reqId = requirement.id else { return [] }
+                let text = requirement.text
+                let tokenizedText = text.segTokTokenize()
+                let sentence = dataModule.Sentence(tokenizedText)
+                sequenceTagger.predict(sentence)
+                let spans = sentence.get_spans()
+                return spans.map { (span) -> [(Int, Int, String, Float)] in
+                    return span.labels.map { (Int(span.start_pos)!, Int(span.end_pos)!, String($0.value)!, Float($0.score)!) }
+                }.reduce([], +).map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: tagType, value: $0.2, createdAt: Date(), confidence: $0.3) }
+            }.reduce([], +)
+        }.reduce([], +)
+    }
+    
+    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "models/", pathsToLMs: [String]) {
         let embeddingsModule = Python.import("flair.embeddings")
         let modelsModule = Python.import("flair.models")
         let trainerModule = Python.import("flair.trainers")
@@ -205,7 +245,8 @@ public struct Trainer {
         let embeddings = embeddingsModule.StackedEmbeddings(embedding_types)
         let sequenceTagger = modelsModule.SequenceTagger(PythonObject(256), embeddings, tag_dictionary, tag_type, Python.True)
         let trainer = trainerModule.ModelTrainer(sequenceTagger, corpus)
-        trainer.train(PythonObject(pathToTrainedModel), PythonObject(0.1), PythonObject(32), PythonObject(150))
+        let fullPath = pathToTrainedModel.addSlashIfNeeded() + type.addSlashIfNeeded()
+        trainer.train(PythonObject(fullPath), PythonObject(0.1), PythonObject(32), PythonObject(150))
     }
     
     // Fine tune embedding at pathToExistingLM or create new Embedding if pathToExistingLM is nil, using pathToCorpus for training data, and storing the resulting embedding at pathToTrainedLM

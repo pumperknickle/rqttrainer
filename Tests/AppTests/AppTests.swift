@@ -56,16 +56,32 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(texts[11][2].0, 68)
         XCTAssertEqual(texts[11][2].1, ".")
     }
+//
+//    func testTrainEmbedding() throws {
+//        let app = Application(.testing)
+//        defer { app.shutdown() }
+//        try configure(app)
+//
+//        try app.test(.GET, "train", afterResponse: { (res) in
+//            XCTAssertEqual(res.status, .ok)
+//            XCTAssertEqual(res.body.string, "trained/")
+//        })
+//    }
     
-    func testTrainEmbedding() throws {
-        let app = Application(.testing)
-        defer { app.shutdown() }
-        try configure(app)
-        
-        try app.test(.GET, "train", afterResponse: { (res) in
-            XCTAssertEqual(res.status, .ok)
-            XCTAssertEqual(res.body.string, "trained/")
-        })
+    func testPrococesingTokens() throws {
+        let text = "George Washington went to Washington."
+        let tokens = ["George", "Washington", "went", "to", "Washington", "."]
+        let texts = text.enumerated().map { ($0.offset, $0.element) }
+        let processedTokens = texts.processTokens(tokens: tokens)
+        XCTAssertEqual(processedTokens.first?.first!.1, "G")
+    }
+    
+    func testSegTokTokenize() throws {
+        let text = "George Washington went to Washington."
+        let tokens = text.segTokTokenize()
+        let texts = text.enumerated().map { ($0.offset, $0.element) }
+        let processedTokens = texts.processTokens(tokens: tokens)
+        XCTAssertEqual(processedTokens.first?.first!.1, "G")
     }
     
     func testSentenceSegmentation() throws {
