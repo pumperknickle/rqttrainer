@@ -218,7 +218,7 @@ public struct Trainer {
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
         return attributes.map { (attributeType) -> [PredictedTagImpl] in
-            let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded()
+            let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded() + "final-model.pt"
             let sequenceTagger = modelsModule.SequenceTagger.load(fullPath)
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
