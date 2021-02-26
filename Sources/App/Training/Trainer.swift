@@ -219,6 +219,7 @@ public struct Trainer {
         let modelsModule = Python.import("flair.models")
         return attributes.map { (attributeType) -> [PredictedTagImpl] in
             let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded() + "final-model.pt"
+            print(fullPath)
             let sequenceTagger = modelsModule.SequenceTagger.load(fullPath)
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
@@ -245,8 +246,7 @@ public struct Trainer {
         let embeddings = embeddingsModule.StackedEmbeddings(embedding_types)
         let sequenceTagger = modelsModule.SequenceTagger(PythonObject(256), embeddings, tag_dictionary, tag_type, Python.True)
         let trainer = trainerModule.ModelTrainer(sequenceTagger, corpus)
-        let fullPath = pathToTrainedModel.addSlashIfNeeded() + type.addSlashIfNeeded()
-        trainer.train(PythonObject(fullPath), PythonObject(0.1), PythonObject(32), PythonObject(epochs))
+        trainer.train(PythonObject(pathToTrainedModel.addSlashIfNeeded()), PythonObject(0.1), PythonObject(32), PythonObject(epochs))
     }
     
     // Fine tune embedding at pathToExistingLM or create new Embedding if pathToExistingLM is nil, using pathToCorpus for training data, and storing the resulting embedding at pathToTrainedLM
