@@ -112,7 +112,7 @@ public extension Sequence where Element: RequirementVersion {
         }
     }
     
-    func computeAllModels<T: Tag>(req: Request, tags: [T], pathsToModels: String, pathsToLMs: [String], testSplit: Double = 0.1, devSplit: Double = 0.1, epochs: Int = 150) throws -> EventLoopFuture<Void> {
+    func computeAllModels<T: Tag>(req: Request, tags: [T], pathsToModels: String = "resources/taggers/", pathsToLMs: [String], testSplit: Double = 0.1, devSplit: Double = 0.1, epochs: Int = 150) throws -> EventLoopFuture<Void> {
         let allAttributes = Array(Set(tags.map { $0.attribute }))
         let datasets = Python.import("flair.datasets")
         let pathToCorpus = "corpi/"
@@ -122,7 +122,7 @@ public extension Sequence where Element: RequirementVersion {
         return saveTaggingCorpus(req: req, tags: tags, allAttributes: allAttributes, pathToCorpus: pathToCorpus, testSplit: testSplit, devSplit: devSplit).flatMap { (_) -> EventLoopFuture<Void> in
             let corpus = datasets.ColumnCorpus(PythonObject(finalSubPath), PythonObject(columns), PythonObject("train.txt"), PythonObject("test.txt"), PythonObject("dev.txt"))
             return allAttributes.compactMap { (element) -> EventLoopFuture<Void> in
-                Trainer.computeLabellingModel(for: element, corpus: corpus, pathToTrainedModel: "resources/taggers/" + element + "/", pathsToLMs: finalPaths, epochs: epochs)
+                Trainer.computeLabellingModel(for: element, corpus: corpus, pathToTrainedModel: pathsToModels.addSlashIfNeeded() + element + "/", pathsToLMs: finalPaths, epochs: epochs)
                 return req.eventLoop.future()
             }.flatten(on: req.eventLoop)
         }
@@ -214,7 +214,7 @@ public extension String {
 }
 
 public struct Trainer {
-    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String], pathToTrainedModel: String = "models/") -> [PredictedTagImpl] {
+    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String], pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
         return attributes.map { (attributeType) -> [PredictedTagImpl] in
@@ -234,7 +234,7 @@ public struct Trainer {
         }.reduce([], +)
     }
     
-    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "models/", pathsToLMs: [String], epochs: Int = 150) {
+    static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "resources/taggers/", pathsToLMs: [String], epochs: Int = 150) {
         let embeddingsModule = Python.import("flair.embeddings")
         let modelsModule = Python.import("flair.models")
         let trainerModule = Python.import("flair.trainers")
