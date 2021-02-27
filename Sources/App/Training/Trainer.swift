@@ -222,9 +222,7 @@ public struct Trainer {
             guard let sequenceTagger = try? modelsModule.SequenceTagger.load(fullPath) else { return [] }
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
-                let text = requirement.text
-                let tokenizedText = text.segTokTokenize()
-                let sentence = dataModule.Sentence(tokenizedText)
+                let sentence = dataModule.Sentence(requirement.text)
                 sequenceTagger.predict(sentence)
                 let spans = sentence.get_spans()
                 spans.map { print(Int($0.start_pos) ?? "No start pos") }
