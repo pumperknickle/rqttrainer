@@ -219,7 +219,6 @@ public struct Trainer {
         let modelsModule = Python.import("flair.models")
         return attributes.map { (attributeType) -> [PredictedTagImpl] in
             let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded() + "final-model.pt"
-            print(fullPath)
             guard let sequenceTagger = try? modelsModule.SequenceTagger.load(fullPath) else { return [] }
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
@@ -228,11 +227,18 @@ public struct Trainer {
                 let sentence = dataModule.Sentence(tokenizedText)
                 sequenceTagger.predict(sentence)
                 let spans = sentence.get_spans()
-                return spans.map { (span) -> [(Int, Int, String, Float)] in
-                    return span.labels.map { (Int(span.start_pos)!, Int(span.end_pos)!, String($0.value)!, Float($0.score)!) }
-                }.reduce([], +).map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: attributeType, value: $0.2, createdAt: Date(), confidence: $0.3) }
-            }.reduce([], +)
-        }.reduce([], +)
+                return spans
+                    .filter { Int($0.start_pos) != nil }
+                    .filter { Int($0.end_pos) != nil }
+                    .map { (span) -> [(Int, Int, String, Float)] in
+                    return span.labels
+                        .filter { String($0.value) != nil }
+                        .filter { Float($0.score) != nil }
+                        .map { return (Int(span.start_pos)!, Int(span.end_pos)!, String($0.value)!, Float($0.score)!) }}
+                    .reduce([], +)
+                    .map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: attributeType, value: $0.2, createdAt: Date(), confidence: $0.3) }}
+            .reduce([], +)}
+        .reduce([], +)
     }
     
     static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "resources/taggers/", pathsToLMs: [String], epochs: Int = 150) {
