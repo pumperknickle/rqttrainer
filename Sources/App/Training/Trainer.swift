@@ -220,7 +220,7 @@ public struct Trainer {
         return attributes.map { (attributeType) -> [PredictedTagImpl] in
             let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded() + "final-model.pt"
             print(fullPath)
-            let sequenceTagger = modelsModule.SequenceTagger.load(fullPath)
+            guard let sequenceTagger = try? modelsModule.SequenceTagger.load(fullPath) else { return [] }
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
                 let text = requirement.text
