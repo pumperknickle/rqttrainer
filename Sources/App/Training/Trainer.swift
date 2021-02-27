@@ -227,6 +227,10 @@ public struct Trainer {
                 let sentence = dataModule.Sentence(tokenizedText)
                 sequenceTagger.predict(sentence)
                 let spans = sentence.get_spans()
+                spans.map { print(Int($0.start_pos) ?? "No start pos") }
+                spans.map { print(Int($0.end_pos) ?? "No end pos") }
+                spans.map { $0.labels.map { print(String($0.value) ?? "No label value") } }
+                spans.map { $0.labels.map { print(Float($0.score) ?? "No score") } }
                 return spans
                     .filter { Int($0.start_pos) != nil }
                     .filter { Int($0.end_pos) != nil }
