@@ -151,7 +151,9 @@ public extension Sequence where Element: RequirementVersion {
         let corpi = createCorpusSplit(tags: tags, allAttributes: allAttributes, testSplit: testSplit, devSplit: devSplit)
         let os = Python.import("os")
         let finalSubPath = pathToCorpus.addSlashIfNeeded()
-        if !Bool(os.path.exists(finalSubPath))! { os.mkdir(finalSubPath) }
+        if !Bool(os.path.exists(finalSubPath)) ?? false { os.mkdir(finalSubPath) }
+        print("final path for tag corpus")
+        print(finalSubPath)
         return req.fileio.writeFile(ByteBuffer(string: corpi.0), at: finalSubPath + "train.txt").flatMap { (_) -> EventLoopFuture<Void> in
             req.fileio.writeFile(ByteBuffer(string: corpi.1), at: finalSubPath + "test.txt").flatMap { (_) -> EventLoopFuture<Void> in
                 return req.fileio.writeFile(ByteBuffer(string: corpi.2), at: finalSubPath + "dev.txt")
@@ -251,6 +253,7 @@ public struct Trainer {
     }
     
     static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "resources/taggers/", pathsToLMs: [String], epochs: Int = 150) {
+        print("training inference model")
         let embeddingsModule = Python.import("flair.embeddings")
         let modelsModule = Python.import("flair.models")
         let trainerModule = Python.import("flair.trainers")

@@ -25,7 +25,7 @@ struct TrainingController: RouteCollection {
         let tag1 = RequirementTagImpl(id: nil, target: req1.id!, span: (0, 7), attribute: "NER", value: "Person", createdAt: nil)
         let tag2 = RequirementTagImpl(id: nil, target: req2.id!, span: (0, 17), attribute: "NER", value: "Person", createdAt: nil)
         let tag3 = RequirementTagImpl(id: nil, target: req2.id!, span: (25, 35), attribute: "GEO", value: "City", createdAt: nil)
-        return try [req1, req2, req3, req4].computeAllModels(req: req, tags: [tag1, tag2, tag3], pathsToLMs: ["trained/"], testSplit: 0.25, devSplit: 0.25, epochs: 1).map { (_) -> (String) in
+        return try [req1, req2, req3, req4].computeAllModels(req: req, tags: [tag1, tag2, tag3], pathsToLMs: ["trained/"], testSplit: 0.25, devSplit: 0.25, epochs: 10).map { (_) -> (String) in
             print(Trainer.infer(for: [req1, req2, req3, req4]))
             return "training complete"
         }
