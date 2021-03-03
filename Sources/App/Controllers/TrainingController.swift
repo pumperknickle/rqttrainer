@@ -12,7 +12,7 @@ struct TrainingController: RouteCollection {
         let req1 = RequirementVersionImpl(id: UUID.init().description, text: "B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times.", source: UUID.init().description, createdAt: Date())
         let req2 = RequirementVersionImpl(id: UUID.init().description, text: "B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times.", source: UUID.init().description, createdAt: Date())
         let req3 = RequirementVersionImpl(id: UUID.init().description, text: "B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times. B.J. Penn was a great fighter. Unfortunately, he got hit too many times.", source: UUID.init().description, createdAt: Date())
-        return try [req1, req2, req3].computeEmbedding(req: req, pathToExistingLM: nil, pathToTrainedLM: "trained/").flatMap { (_) -> EventLoopFuture<String> in
+        return try [req1, req2, req3].computeEmbedding(req: req, pathToExistingLM: nil, pathToTrainedLM: "trained/", max_epochs: 1).flatMap { (_) -> EventLoopFuture<String> in
             return try! trainModel(req: req)
         }
     }

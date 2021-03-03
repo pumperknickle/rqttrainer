@@ -106,9 +106,9 @@ public extension RequirementVersion {
 }
 
 public extension Sequence where Element: RequirementVersion {
-    func computeEmbedding(req: Request, pathToExistingLM: String?, pathToTrainedLM: String, is_forward: Bool = true) throws -> EventLoopFuture<Void> {
+    func computeEmbedding(req: Request, pathToExistingLM: String?, pathToTrainedLM: String, is_forward: Bool = true, max_epochs: Int = 10) throws -> EventLoopFuture<Void> {
         return try saveAsCorpus(req: req, pathToCorpus: embeddingCorpusPath).flatMapThrowing { (_) -> Void in
-            try Trainer.computeEmbedding(pathToExistingLM: pathToExistingLM, pathToCorpus: embeddingCorpusPath, pathToTrainedLM: pathToTrainedLM, is_forward: is_forward)
+            try Trainer.computeEmbedding(pathToExistingLM: pathToExistingLM, pathToCorpus: embeddingCorpusPath, pathToTrainedLM: pathToTrainedLM, is_forward: is_forward, max_epochs: max_epochs)
         }
     }
     
