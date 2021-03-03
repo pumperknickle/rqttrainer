@@ -111,7 +111,6 @@ public extension RequirementVersion {
 
 public extension Sequence where Element: RequirementVersion {
     func computeEmbedding(req: Request, pathToExistingLM: String?, pathToTrainedLM: String, is_forward: Bool = true, max_epochs: Int = 10) throws -> EventLoopFuture<Void> {
-        print("computing embedding")
         return try saveAsCorpus(req: req, pathToCorpus: embeddingCorpusPath).flatMapThrowing { (_) -> Void in
             try Trainer.computeEmbedding(pathToExistingLM: pathToExistingLM, pathToCorpus: embeddingCorpusPath, pathToTrainedLM: pathToTrainedLM, is_forward: is_forward, max_epochs: max_epochs)
         }
@@ -222,11 +221,13 @@ public extension String {
 
 public struct Trainer {
     static func infer(for requirements: [RequirementVersionImpl], for attributes: [String]? = nil, pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
+        print("inference")
         let os = Python.import("os")
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
         let children = os.scandir(pathToTrainedModel.addSlashIfNeeded())
         let paths = attributes != nil ? attributes!.map { pathToTrainedModel.addSlashIfNeeded() + $0 } : children.filter { Bool($0.is_dir()) ?? false }.filter { String($0.path) != nil }.map { String($0.path)! }
+        print(paths)
         return paths.map { (path) -> [PredictedTagImpl] in
             let fullPath = path.addSlashIfNeeded() + "final-model.pt"
             guard let sequenceTagger = try? modelsModule.SequenceTagger.load(fullPath) else { return [] }
@@ -254,7 +255,6 @@ public struct Trainer {
     }
     
     static func computeLabellingModel(for type: String, corpus: PythonObject, pathToTrainedModel: String = "resources/taggers/", pathsToLMs: [String], epochs: Int = 150) {
-        print("training inference model")
         let embeddingsModule = Python.import("flair.embeddings")
         let modelsModule = Python.import("flair.models")
         let trainerModule = Python.import("flair.trainers")
@@ -270,8 +270,6 @@ public struct Trainer {
     
     // Fine tune embedding at pathToExistingLM or create new Embedding if pathToExistingLM is nil, using pathToCorpus for training data, and storing the resulting embedding at pathToTrainedLM
     static func computeEmbedding(pathToExistingLM: String?, pathToCorpus: String, pathToTrainedLM: String, is_forward: Bool = true, max_epochs: Int = 10) throws {
-        print("training embedding")
-        print(Python.version)
         let flair = Python.import("flair")
         let lang_trainer = Python.import("flair.trainers.language_model_trainer")
         let existingPath: PythonObject = pathToExistingLM == nil ? Python.None : PythonObject(pathToExistingLM!)
