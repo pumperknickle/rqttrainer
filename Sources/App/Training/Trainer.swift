@@ -214,7 +214,7 @@ public extension String {
 }
 
 public struct Trainer {
-    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String]?, pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
+    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String]? = nil, pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
         let os = Python.import("os")
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
