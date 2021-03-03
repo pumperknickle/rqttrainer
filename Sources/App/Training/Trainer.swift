@@ -269,6 +269,7 @@ public struct Trainer {
     
     // Fine tune embedding at pathToExistingLM or create new Embedding if pathToExistingLM is nil, using pathToCorpus for training data, and storing the resulting embedding at pathToTrainedLM
     static func computeEmbedding(pathToExistingLM: String?, pathToCorpus: String, pathToTrainedLM: String, is_forward: Bool = true, max_epochs: Int = 10) throws {
+        print("training embedding")
         print(Python.version)
         let flair = Python.import("flair")
         let lang_trainer = Python.import("flair.trainers.language_model_trainer")
