@@ -214,11 +214,14 @@ public extension String {
 }
 
 public struct Trainer {
-    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String], pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
+    static func infer(for requirements: [RequirementVersionImpl], for attributes: [String]?, pathToTrainedModel: String = "resources/taggers/") -> [PredictedTagImpl] {
+        let os = Python.import("os")
         let dataModule = Python.import("flair.data")
         let modelsModule = Python.import("flair.models")
-        return attributes.map { (attributeType) -> [PredictedTagImpl] in
-            let fullPath = pathToTrainedModel.addSlashIfNeeded() + attributeType.addSlashIfNeeded() + "final-model.pt"
+        let children = os.scandir(pathToTrainedModel.addSlashIfNeeded())
+        let paths = attributes != nil ? attributes!.map { pathToTrainedModel.addSlashIfNeeded() + $0 } : children.filter { Bool($0.is_dir()) ?? false }.filter { String($0.path) != nil }.map { String($0.path)! }
+        return paths.map { (path) -> [PredictedTagImpl] in
+            let fullPath = path.addSlashIfNeeded() + "final-model.pt"
             guard let sequenceTagger = try? modelsModule.SequenceTagger.load(fullPath) else { return [] }
             return requirements.map { (requirement) -> [PredictedTagImpl] in
                 guard let reqId = requirement.id else { return [] }
