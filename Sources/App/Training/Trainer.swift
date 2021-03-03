@@ -12,6 +12,10 @@ public extension String {
         return (last == "/" ? self : self + "/")
     }
     
+    func removeSlashIfNeeded() -> String {
+        return (last == "/" ? self : String(self.dropLast()))
+    }
+    
     func segTokTokenize() -> [String] {
         return Python.import("flair.data").Sentence(self).map { String($0.text)! }
     }
@@ -241,7 +245,7 @@ public struct Trainer {
                         .filter { Float($0.score) != nil }
                         .map { return (Int(span.start_pos)!, Int(span.end_pos)!, String($0.value)!, Float($0.score)!) }}
                     .reduce([], +)
-                    .map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: attributeType, value: $0.2, createdAt: Date(), confidence: $0.3) }}
+                    .map { PredictedTagImpl(id: nil, target: reqId, span: ($0.0, $0.1), attribute: String(path.dropFirst(pathToTrainedModel.addSlashIfNeeded().count)).removeSlashIfNeeded(), value: $0.2, createdAt: Date(), confidence: $0.3) }}
             .reduce([], +)}
         .reduce([], +)
     }
